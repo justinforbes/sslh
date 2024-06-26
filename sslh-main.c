@@ -37,6 +37,7 @@
 #include "common.h"
 #include "probe.h"
 #include "log.h"
+#include "tcp-probe.h"
 
 /* Constants for options that have no one-character shorthand */
 #define OPT_ONTIMEOUT   257
@@ -69,7 +70,7 @@ static void printsettings(void)
         strcpy(buf, "resolve on forward");
         if (!p->resolve_on_forward) {
             sprintaddr(buf, sizeof(buf), p->saddr);
-            int len = strlen(buf);
+            size_t len = strlen(buf);
             sprintf(buf+len, " family %d %d", 
                     p->saddr->ai_family,
                     p->saddr->ai_addr->sa_family);
@@ -98,7 +99,8 @@ static void printsettings(void)
 static void setup_regex_probe(struct sslhcfg_protocols_item *p)
 #ifdef ENABLE_REGEX
 {
-    int num_patterns, i, error;
+    size_t num_patterns, i;
+    int error;
     pcre2_code** pattern_list;
     PCRE2_SIZE error_offset;
     PCRE2_UCHAR8 err_str[120];
@@ -186,7 +188,7 @@ void config_sanity_check(struct sslhcfg_item* cfg)
 #endif
 
     for (i = 0; i < cfg->protocols_len; ++i) {
-        if (strcmp(cfg->protocols[i].name, "tls")) {
+        if (strcmp(cfg->protocols[i].name, "tls") != 0) {
             if (cfg->protocols[i].sni_hostnames_len) {
                 print_message(msg_config_error, "name: \"%s\"; host: \"%s\"; port: \"%s\": "
                               "Config option sni_hostnames is only applicable for tls\n",
@@ -245,6 +247,7 @@ int main(int argc, char *argv[], char* envp[])
    if (cfg.inetd)
    {
        close(fileno(stderr)); /* Make sure no error will go to client */
+       tcp_init();
        start_shoveler(0);
        exit(0);
    }
