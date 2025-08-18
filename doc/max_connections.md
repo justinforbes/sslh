@@ -9,18 +9,29 @@ complicated from the server side. This attack will cause
 `sslh` to create a large number of file handles, which can
 cause exgagerated resource consumption.
 
-This threat can be mitigated using several limitation
-mechanisms. Keep in mind that limiting the number of
-connections means that in case of an attack, the server
-resources are protected, but this might be at the expense of
-serving legitimate connections. In particular, in some cases
-this might mean SSH is no longer available.
+In particular, when `sslh` runs into its file descriptor
+limit (as defined with `ulimit -n`), bad things happen: It
+becomes impossible to accept() new sockets efficiently
+(refer to libev's documentation, ["The special problem of
+ accept()ing when you can't"](http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#The_special_problem_of_accept_ing_wh)). Currently, when `sslh-ev` or
+`sslh-select` reaches its limit of file descriptors, it just
+stops accepting new connections altogether for a few
+seconds, hoping for the situation to get better soon. It is
+better to configure `sslh` to limit connections so the
+`ulimit` is never reached.
+
+Keep in mind that limiting the number of connections means
+that in case of an attack, the server resources are
+protected, but this might be at the expense of serving
+legitimate connections. In particular, in some cases this
+might mean SSH is no longer available.
 
 There are several mechanisms to limit the number of
 connections:
 
 - Use `ulimit` (see bash(3) or your shell's man page) to
-limit the number of file descriptors.
+limit the number of file descriptors. (but then accepting
+new connections might fail for a while)
 
 Then, `sslh` provides several mechanisms to limit the number
 of concurrent connections, which in turns limits the number
@@ -32,8 +43,6 @@ Essentially there are two ways to do this:
 will drop connections after probing if the count is
 exceeded.  This should help in keeping SSH connections
 available even if an attacker is stuffing other protocols.
-Currently this does not work for forking protocols (support
-is planned).
 
 - you can set `max_connections` for each `listen` entry. So
 the `sslh` process for each port will limit the number of

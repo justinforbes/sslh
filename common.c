@@ -87,7 +87,7 @@ int get_fd_sockets(struct listen_endpoint *sockfd[])
     }
     if (sd > 0) {
       int i;
-      *sockfd = malloc(sd * sizeof(*sockfd[0]));
+      *sockfd = calloc(sd, sizeof(*sockfd[0]));
       CHECK_ALLOC(*sockfd, "malloc");
       for (i = 0; i < sd; i++) {
         (*sockfd)[i].socketfd = SD_LISTEN_FDS_START + i;
@@ -162,6 +162,17 @@ int listen_single_addr(struct addrinfo* addr, int keepalive, int udp)
     return sockfd;
 }
 
+void print_inet_listen_info(int fd, const char* addr, 
+                            struct sslhcfg_listen_item* cfg)
+{
+    print_message(msg_config, "%d:\t%s\t[%s] [%s] [max_cnx: %d]\n", 
+                  fd, 
+                  addr,
+                  cfg->keepalive ? "keepalive" : "",
+                  cfg->is_udp ? "udp" : "",
+                  cfg->max_connections);
+}
+
 
 /* Start listening internet sockets for configuration entry 'index' 
  * OUT: *sockfd[]: pointer to array of listen_endpoint object; we append new
@@ -182,13 +193,14 @@ static int start_listen_inet(struct listen_endpoint *sockfd[], int num_addr, str
     for (addr = start_addr; addr; addr = addr->ai_next) {
         num_addr++;
         *sockfd = realloc(*sockfd, num_addr * sizeof(*sockfd[0]));
+        memset(&(*sockfd)[num_addr-1], 0, sizeof((*sockfd)[num_addr-1]));
         (*sockfd)[num_addr-1].socketfd = listen_single_addr(addr, cfg->keepalive, cfg->is_udp);
         (*sockfd)[num_addr-1].type = cfg->is_udp ? SOCK_DGRAM : SOCK_STREAM;
         (*sockfd)[num_addr-1].family = AF_INET;
         (*sockfd)[num_addr-1].endpoint_cfg = cfg;
-        print_message(msg_config, "%d:\t%s\t[%s] [%s]\n", (*sockfd)[num_addr-1].socketfd, sprintaddr(buf, sizeof(buf), addr),
-                      cfg->keepalive ? "keepalive" : "",
-                      cfg->is_udp ? "udp" : "");
+        print_inet_listen_info((*sockfd)[num_addr-1].socketfd, 
+                               sprintaddr(buf, sizeof(buf), addr), 
+                               cfg);
     }
     freeaddrinfo(start_addr);
     return num_addr;
@@ -217,6 +229,7 @@ static int start_listen_unix(struct listen_endpoint *sockfd[], int num_addr, str
 
     num_addr++;
     *sockfd = realloc(*sockfd, num_addr * sizeof(*sockfd[0]));
+    memset(&(*sockfd)[num_addr-1], 0, sizeof((*sockfd)[num_addr-1]));
     (*sockfd)[num_addr-1].socketfd = fd;
     (*sockfd)[num_addr-1].type = cfg->is_udp ? SOCK_DGRAM : SOCK_STREAM;
     (*sockfd)[num_addr-1].family = AF_INET;
@@ -600,30 +613,30 @@ void dump_connection(struct connection *cnx)
 /* *cnx must have its proto field probed already.
  * If required, increment the connection count for this protocol.
  * Returns 1 if connection count is exceeded, 0 otherwise */
-int inc_proto_connections(struct connection* cnx)
+int inc_proto_connections(struct sslhcfg_protocols_item* proto)
 {
-    cnx->proto->num_connections++;
-    if (cnx->proto->max_connections_is_present) {
+    proto->num_connections++;
+    if (proto->max_connections_is_present) {
         print_message(msg_connections, "Proto %s +1: %d/%d cnx\n",
-                      cnx->proto->name,
-                      cnx->proto->num_connections,
-                      cnx->proto->max_connections);
-        if (cnx->proto->num_connections > cnx->proto->max_connections) {
-            print_message(msg_connections_error, "%s: too many connections, dropping", cnx->proto->name);
+                      proto->name,
+                      proto->num_connections,
+                      proto->max_connections);
+        if (proto->num_connections > proto->max_connections) {
+            print_message(msg_connections_error, "%s: too many connections, dropping\n", proto->name);
             return 1;
         }
     }
     return 0;
 }
 
-void dec_proto_connections(struct connection* cnx)
+void dec_proto_connections(struct sslhcfg_protocols_item* proto)
 {
-    if (cnx->proto) {
-        cnx->proto->num_connections--;
+    if (proto) {
+        proto->num_connections--;
         print_message(msg_connections, "Proto %s -1: %d/%d cnx\n",
-                      cnx->proto->name,
-                      cnx->proto->num_connections,
-                      cnx->proto->max_connections);
+                      proto->name,
+                      proto->num_connections,
+                      proto->max_connections);
     }
 }
 
@@ -913,7 +926,6 @@ void setup_signals(void)
     action.sa_handler = SIG_IGN;
     res = sigaction(SIGPIPE, &action, NULL);
     CHECK_RES_DIE(res, "sigaction");
-
 }
 
 

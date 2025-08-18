@@ -3,8 +3,8 @@ vNEXT:
 	`protocol` configuration; see the
 	[guide](doc/max_connections.md) for more
 	information.
-	(still missing: protocol count for forked protocols
-	 in sslh-[ev|select])
+
+	accept() is now disabled for some time when ulimit -n is reached.
 
 	Fix proxyprotocol target field (Thanks to Github user 404-Not-Found)
 
