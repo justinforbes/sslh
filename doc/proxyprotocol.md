@@ -27,7 +27,6 @@ protocols:
 (
      { name: "ssh";  host: "localhost"; port: "2222"; },
      { name: "tls";  host: "localhost"; port: "8080"; proxyprotocol: 2; }
-     );
 );
 ```
 
@@ -77,7 +76,6 @@ protocols:
 (
      { name: "ssh";  host: "localhost"; port: "2222"; proxyprotocol: 0; },
      { name: "tls";  host: "localhost"; port: "8080"; }
-     );
 );
 ```
 
