@@ -1,4 +1,7 @@
 vNEXT:
+	Silently ignore EAGAIN/EWOULDBLOCK to avoid
+	spurrious error logs upon UDP port scans.
+
 	verbose_packet now also dumps UDP packets.
 
 v2.3.1:

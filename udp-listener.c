@@ -273,10 +273,9 @@ struct connection* udp_c2s_forward(int sockfd, struct loop_info* fd_info)
 
     addrlen = sizeof(src_addr);
     len = recvfrom(sockfd, data, sizeof(data), 0, (struct sockaddr*) &src_addr, &addrlen);
-    if (len < 0) {
-        perror("recvfrom");
-        return NULL;
-    }
+    if ((len == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) return NULL;
+    CHECK_RES_DIE(len, "udp_listener/c2s/recvfrom");
+
     target = known_source(fd_info->hash_sources, &src_addr, addrlen);
     addrinfo.ai_addr = (struct sockaddr*) &src_addr;
     addrinfo.ai_addrlen = addrlen;
@@ -337,7 +336,7 @@ void udp_s2c_forward(struct connection* cnx)
 
     res = recvfrom(sockfd, data, sizeof(data), 0, NULL, NULL);
     if ((res == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) return;
-    CHECK_RES_DIE(res, "udp_listener/recvfrom");
+    CHECK_RES_DIE(res, "udp_listener/s2c/recvfrom");
     res = sendto(cnx->local_endpoint, data, res, 0,
                  (struct sockaddr*)&cnx->client_addr, cnx->addrlen);
     mark_active(cnx);
